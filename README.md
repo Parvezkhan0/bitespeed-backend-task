@@ -54,4 +54,3 @@ The service is built using Node.js with Express and Sequelize to handle database
 ## Hosted URL
 The service is hosted and can be accessed at:
 https://bitespeed-identity-api-ezch.onrender.com/identify
-
