@@ -53,4 +53,4 @@ The service is built using Node.js with Express and Sequelize to handle database
 
 ## Hosted URL
 The service is hosted and can be accessed at:
-http://ec2-13-201-62-221.ap-south-1.compute.amazonaws.com:3000/
+https://bitespeed-identity-api-ezch.onrender.com
