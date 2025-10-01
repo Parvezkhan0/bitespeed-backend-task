@@ -228,7 +228,7 @@ curl -X POST http://localhost:3000/identify \
 
 This project was built as part of the Bitespeed Backend Task for Identity Reconciliation.
 
-**Assignment Link:** [Bitespeed Backend Task](https://bitespeed.notion.site/Bitespeed-Backend-Task-Identity-Reconciliation-53392ab01fe149fab989422300423199)
+**Assignment Link:** [Bitespeed Backend Task](https://github.com/Parvezkhan0/bitespeed-backend-task.git)
 
 ## Repository
 
