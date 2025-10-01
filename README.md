@@ -1,56 +1,235 @@
 # Bitespeed Backend Task: Identity Reconciliation
 
+Backend service for identifying and linking customer contact information across multiple purchases.
+
+## Live Endpoint
+
+```
+https://bitespeed-identity-api-ezch.onrender.com/identify
+```
+
 ## Problem Statement
 
-The goal is to create an identity reconciliation service for contact data. Given a set of contact information (email and phone number), the service needs to identify if the contact already exists in the database and link it appropriately. Contacts should be classified as either primary or secondary, and any new contact information should be reconciled with existing records to maintain a unified view of each contact.
+FluxKart.com needs to identify and link orders made by the same customer using different email addresses and phone numbers. The service consolidates contact information by linking records that share either an email or phone number, treating the oldest contact as "primary" and subsequent ones as "secondary".
 
-## Solution
+## Solution Overview
 
-### Overview
+Built a RESTful API using Node.js, Express, TypeScript, and PostgreSQL that:
+- Creates new primary contacts when no matching records exist
+- Links new contact information to existing primary contacts as secondary records
+- Merges separate primary contacts when a request reveals they belong to the same person
+- Returns consolidated contact information with all associated emails and phone numbers
 
-The service is built using Node.js with Express and Sequelize to handle database operations with a PostgreSQL database. The solution involves the following steps:
+## API Documentation
 
-1. Accept a request with email and phone number.
-2. Check if there are any existing contacts with the provided email or phone number.
-3. Identify or create a primary contact based on the existing records.
-4. Ensure any related contacts are linked to the primary contact.
-5. Provide a response with a unified view of the contact, including all associated emails, phone numbers, and secondary contact IDs.
+### Endpoint: POST `/identify`
 
+Accepts contact information and returns a consolidated view of all linked contacts.
 
-
-## Technologies Used
-
-- **Node.js**: JavaScript runtime for building the server.
-- **Express**: Web framework for handling HTTP requests and routing.
-- **Sequelize**: ORM for interacting with the PostgreSQL database.
-- **PostgreSQL**: Database for storing contact information.
-
-## Endpoints
-
-### `/identify`
-
-**POST** `/identify`
-
-**Request Body**:
+**Request Body:**
 ```json
 {
-  "email": "user@example.com",
-  "phoneNumber": "1234567890"
+  "email": "string (optional)",
+  "phoneNumber": "string (optional)"
 }
 ```
 
-**Request Response**:
+**Response Format:**
 ```json
 {
   "contact": {
     "primaryContactId": 1,
-    "emails": ["user@example.com"],
-    "phoneNumbers": ["1234567890"],
+    "emails": ["primary@example.com", "secondary@example.com"],
+    "phoneNumbers": ["123456", "789012"],
+    "secondaryContactIds": [2, 3]
+  }
+}
+```
+
+## Example Usage
+
+### Example 1: Creating a New Contact
+
+**Request:**
+```bash
+curl -X POST https://bitespeed-identity-api-ezch.onrender.com/identify \
+  -H "Content-Type: application/json" \
+  -d '{"email":"lorraine@hillvalley.edu","phoneNumber":"123456"}'
+```
+
+**Response:**
+```json
+{
+  "contact": {
+    "primaryContactId": 1,
+    "emails": ["lorraine@hillvalley.edu"],
+    "phoneNumbers": ["123456"],
     "secondaryContactIds": []
   }
 }
 ```
 
-## Hosted URL
-The service is hosted and can be accessed at:
-https://bitespeed-identity-api-ezch.onrender.com/identify
+### Example 2: Linking Contacts (Same Phone, New Email)
+
+**Request:**
+```bash
+curl -X POST https://bitespeed-identity-api-ezch.onrender.com/identify \
+  -H "Content-Type: application/json" \
+  -d '{"email":"mcfly@hillvalley.edu","phoneNumber":"123456"}'
+```
+
+**Response:**
+```json
+{
+  "contact": {
+    "primaryContactId": 1,
+    "emails": ["lorraine@hillvalley.edu", "mcfly@hillvalley.edu"],
+    "phoneNumbers": ["123456"],
+    "secondaryContactIds": [2]
+  }
+}
+```
+
+### Example 3: Merging Primary Contacts
+
+**Initial State:**
+- Contact 1: `george@hillvalley.edu`, `919191` (primary, created 2023-04-11)
+- Contact 2: `biffsucks@hillvalley.edu`, `717171` (primary, created 2023-04-21)
+
+**Request:** (Links both primaries)
+```bash
+curl -X POST https://bitespeed-identity-api-ezch.onrender.com/identify \
+  -H "Content-Type: application/json" \
+  -d '{"email":"george@hillvalley.edu","phoneNumber":"717171"}'
+```
+
+**Response:**
+```json
+{
+  "contact": {
+    "primaryContactId": 1,
+    "emails": ["george@hillvalley.edu", "biffsucks@hillvalley.edu"],
+    "phoneNumbers": ["919191", "717171"],
+    "secondaryContactIds": [2]
+  }
+}
+```
+
+**Result:** Contact 1 remains primary (older), Contact 2 becomes secondary.
+
+### Example 4: Querying with Partial Information
+
+All of these requests return the same consolidated response:
+
+```bash
+# Query by phone only
+curl -X POST https://bitespeed-identity-api-ezch.onrender.com/identify \
+  -H "Content-Type: application/json" \
+  -d '{"phoneNumber":"123456"}'
+
+# Query by email only
+curl -X POST https://bitespeed-identity-api-ezch.onrender.com/identify \
+  -H "Content-Type: application/json" \
+  -d '{"email":"lorraine@hillvalley.edu"}'
+
+# Query by secondary email
+curl -X POST https://bitespeed-identity-api-ezch.onrender.com/identify \
+  -H "Content-Type: application/json" \
+  -d '{"email":"mcfly@hillvalley.edu"}'
+```
+
+## Tech Stack
+
+- **Backend:** Node.js, Express, TypeScript
+- **Database:** PostgreSQL (Supabase)
+- **ORM:** Sequelize
+- **Deployment:** Render
+- **Containerization:** Docker
+
+## Database Schema
+
+```typescript
+Contact {
+  id: number (Primary Key, Auto-increment)
+  phoneNumber: string | null
+  email: string | null
+  linkedId: number | null (Foreign Key to Contact.id)
+  linkPrecedence: 'primary' | 'secondary'
+  createdAt: timestamp
+  updatedAt: timestamp
+  deletedAt: timestamp | null
+}
+```
+
+## Local Development
+
+### Prerequisites
+- Docker and Docker Compose installed
+
+### Setup and Run
+
+```bash
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/bitespeed-identity-reconciliation.git
+cd bitespeed-identity-reconciliation
+
+# Start the application
+docker-compose up --build
+
+# API will be available at http://localhost:3000
+```
+
+### Test Locally
+
+```bash
+curl -X POST http://localhost:3000/identify \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","phoneNumber":"123456"}'
+```
+
+## Key Features
+
+1. **Smart Contact Linking:** Automatically links contacts sharing email or phone number
+2. **Primary Contact Merging:** When two separate primary contacts are linked, keeps the oldest as primary
+3. **Recursive Updates:** Updates all secondary contacts when primaries are merged
+4. **Duplicate Prevention:** Checks for exact matches before creating new records
+5. **Database Retry Logic:** Handles connection failures during container startup
+6. **Comprehensive Error Handling:** Validates input and handles edge cases gracefully
+
+## Project Structure
+
+```
+├── src/
+│   ├── models/
+│   │   └── contact.ts          # Sequelize Contact model
+│   ├── routes/
+│   │   └── contact.ts          # API route handlers
+│   ├── services/
+│   │   └── contactService.ts   # Business logic for identity reconciliation
+│   ├── database.ts             # Database configuration
+│   └── index.ts                # Application entry point
+├── docker-compose.yml          # Docker services configuration
+├── Dockerfile                  # Container build instructions
+├── package.json                # Dependencies and scripts
+└── tsconfig.json              # TypeScript configuration
+```
+
+## How It Works
+
+1. **No Existing Contacts:** Creates a new primary contact
+2. **Single Match Found:** Creates a secondary contact linked to the existing primary
+3. **Multiple Primaries Found:** 
+   - Keeps the oldest contact as primary
+   - Converts newer primary(s) to secondary
+   - Updates all secondary contacts linked to demoted primaries
+   - Creates a new secondary if the request contains new information
+
+## Assignment Details
+
+This project was built as part of the Bitespeed Backend Task for Identity Reconciliation.
+
+**Assignment Link:** [Bitespeed Backend Task](https://bitespeed.notion.site/Bitespeed-Backend-Task-Identity-Reconciliation-53392ab01fe149fab989422300423199)
+
+## Repository
+
+**GitHub:** [bitespeed-identity-reconciliation](https://github.com/YOUR_USERNAME/bitespeed-identity-reconciliation)
